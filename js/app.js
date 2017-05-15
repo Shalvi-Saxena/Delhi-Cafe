@@ -1,11 +1,5 @@
 //JavaScript
 
-function googleError() 
-{
-	$('#lists').hide();
-    $('#summary').text("Error in Loading Google Maps");
-}
-
 String.prototype.contains=function(other) 
 {	return this.indexOf(other)!==(-1);	};
 
@@ -62,6 +56,7 @@ var map;
 
 function initMap() 
 {
+	"use strict";
 	map = new google.maps.Map(document.getElementById('map'), {
         zoom: 12,
         center: {lat:  28.629329, lng: 77.215673},
@@ -374,10 +369,53 @@ function initMap()
 var hIcon;
 var infoWindow;
 var data;
+var my;
 
 var AppModel = function () 
 {
-	 function fetchCafe() 
+	my=this;
+
+	if (typeof google!==('object') || typeof google.maps!==('object'));
+	else 
+	{
+        dIcon=makeMarker('bf7c7c');
+        hIcon=makeMarker('8bc18b');
+        infoWindow=new google.maps.InfoWindow();
+        google.maps.event.addDomListener(window,'load',init);
+    }
+	
+	my.cafesList=ko.observableArray([]);
+    my.query=ko.observable('');
+    my.queryResult=ko.observable('');
+	my.search=function() {};
+    
+	my.FilteredcafeList=ko.computed(function() 
+	{
+        my.cafesList().forEach(function (cafe) 
+		{	cafe.marker.setMap(null);	});
+		
+		var results = ko.utils.arrayFilter(my.cafesList(),function (cafe) 
+		{	return cafe.name().toLowerCase().contains(my.query().toLowerCase());	});
+        
+		results.forEach(function (cafe) 
+		{	cafe.marker.setMap(map);	});
+        if (results.length > 0) 
+		    if (results.length == 1) 
+                my.queryResult(results.length+" Coffee House ");
+            else 
+                my.queryResult(results.length +" Coffee House ");
+        else 
+		    my.queryResult("No Coffee House Available");
+        
+		return (results);
+    });
+	 my.queryResult( "Loading Coffee Houses, Please wait..." );
+   	
+	
+    function init() 
+	{	fetchCafe();	}
+
+	function fetchCafe() 
 	 {
         $.ajax(
 		{
@@ -389,69 +427,34 @@ var AppModel = function ()
 		).done(function(response) 
 		{
             data=response.response.venues;
-            data.forEach(function(coffeehouse) 
+            data.forEach(function(cafe) 
 			{
-                foursquare=new Fs(coffeehouse,map);
-                self.cafesList.push(foursquare);
+                foursquare=new Fs(cafe,map);
+                my.cafesList.push(foursquare);
             });
-            self.cafesList().forEach(function (coffeehouse) {
-                if (coffeehouse.map_location()) 
+            my.cafesList().forEach(function(cafe) {
+                if(cafe.map_location()) 
 				{
-                    google.maps.event.addListener(coffeehouse.marker,'click',function() 
+                    google.maps.event.addListener(cafe.marker,'click',function() 
 					{
-                        self.selectCafe(coffeehouse);
+                        my.selectCafe(cafe);
                     });
                 }
             });
-        }).fail(function (response, status, error) {
+        }
+		).fail(function(response, status, error){
             $('#summary').text('Coffee Houses could not load...');
         });
     }
-	
-    function init() 
-	{	fetchCafe();	}
-	if (typeof google!==('object') || typeof google.maps!==('object'));
-	else 
-	{
-        dIcon=makeMarker('bf7c7c');
-        hIcon=makeMarker('8bc18b');
-        infoWindow=new google.maps.InfoWindow();
-        google.maps.event.addDomListener(window,'load',init);
-    }
-    self.queryResult=ko.observable('');
-	self.query=ko.observable('');
-    self.search=function() {};
-    self.cafesList=ko.observableArray([]);
-    self.FilteredcafeList=ko.computed(function() 
-	{
-        self.cafesList().forEach(function (coffeehouse) 
-		{	coffeehouse.marker.setMap(null);	});
 		
-        var results = ko.utils.arrayFilter(self.cafesList(),function (coffeehouse) 
-		{	return coffeehouse.name().toLowerCase().contains(self.query().toLowerCase());	});
-        
-		results.forEach(function (coffeehouse) 
-		{	coffeehouse.marker.setMap(map);	});
-        if (results.length > 0) 
-		    if (results.length == 1) 
-                self.queryResult(results.length+" Coffee House ");
-            else 
-                self.queryResult(results.length +" Coffee House ");
-        else 
-		    self.queryResult("No Coffee House Available");
-        
-		return (results);
-    });
-    self.queryResult( "Loading Coffee Houses, Please wait..." );
-    self.selectCafe=function(coffeehouse) 
-	{
-        infoWindow.setContent(coffeehouse.formattedInfoWindowData());
-        infoWindow.open(map, coffeehouse.marker);
-        map.panTo(coffeehouse.marker.position);
-        coffeehouse.marker.setAnimation(google.maps.Animation.BOUNCE);
-        coffeehouse.marker.setIcon(hIcon);
-        self.cafesList().forEach(function (unselected_cafe) {
-            if (coffeehouse!=unselected_cafe) 
+    my.selectCafe=function(cafe) 
+	{   infoWindow.setContent( cafe.formattedInfoWindowData() );
+        infoWindow.open(map,cafe.marker);
+        map.panTo( cafe.marker.position );
+        cafe.marker.setAnimation( google.maps.Animation.BOUNCE );
+        cafe.marker.setIcon(hIcon);
+        my.cafesList().forEach(function (unselected_cafe) {
+            if (cafe != unselected_cafe) 
 			{
                 unselected_cafe.marker.setAnimation(null);
                 unselected_cafe.marker.setIcon(dIcon);
@@ -459,6 +462,12 @@ var AppModel = function ()
         });
     };
 };
+
+function googleError() 
+{
+	$('#summary').text("Error in Loading Google Maps");
+	$('#lists').hide();
+}
 
 
 
